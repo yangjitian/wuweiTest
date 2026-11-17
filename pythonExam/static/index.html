@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FastAPI 流式接口演示</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>⚡</text></svg>">
+<style>
+  :root{
+    --bg:#faf9f7; --card:#ffffff; --ink:#17181a; --muted:#6f7278;
+    --line:#e6e3dd; --accent:#0d9488; --accent-soft:#e6f6f3; --gray:#b9b6ae;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.7 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1060px; margin:0 auto; padding:48px 24px 64px}
+
+  header h1{margin:0 0 8px; font-size:26px; letter-spacing:-.3px; font-weight:650}
+  header p{margin:0; color:var(--muted); font-size:14px}
+  header code{font-family:var(--mono); font-size:12.5px; background:#f1efea; padding:2px 6px; border-radius:4px}
+
+  .controls{
+    display:flex; flex-wrap:wrap; align-items:center; gap:12px 18px;
+    margin:28px 0 22px; padding-bottom:22px; border-bottom:1px solid var(--line);
+  }
+  .group{display:flex; align-items:center; gap:8px}
+  .group > span{font-size:12px; color:var(--muted); letter-spacing:.04em}
+  .chips{display:flex; gap:6px}
+  .chip{
+    border:1px solid var(--line); background:#fff; color:var(--muted);
+    padding:6px 12px; border-radius:999px; font-size:13px; cursor:pointer;
+    transition:.15s; font-family:inherit;
+  }
+  .chip:hover{border-color:var(--gray); color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--ink); border-color:var(--ink); color:#fff}
+
+  input[type=range]{width:120px; accent-color:var(--accent)}
+  .speed{font-family:var(--mono); font-size:12.5px; color:var(--muted); min-width:66px}
+
+  #run{
+    margin-left:auto; border:0; background:var(--ink); color:#fff;
+    padding:9px 20px; border-radius:8px; font-size:14px; cursor:pointer;
+    font-family:inherit; transition:.15s;
+  }
+  #run:hover{background:#000}
+  #run.stop{background:#c2410c}
+
+  .panels{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  @media (max-width:780px){ .panels{grid-template-columns:1fr} }
+
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  .panel.live{border-color:#b7e4dc; box-shadow:0 1px 2px rgba(13,148,136,.06)}
+
+  .panel-head{display:flex; align-items:baseline; gap:8px; padding:14px 18px 0}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--gray); align-self:center}
+  .live .dot{background:var(--accent)}
+  .panel-head h2{margin:0; font-size:14px; font-weight:600}
+  .panel-head .tag{
+    margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted);
+    letter-spacing:.03em;
+  }
+
+  .metrics{display:flex; gap:0; padding:12px 18px 4px}
+  .metric{flex:1}
+  .metric b{display:block; font-family:var(--mono); font-size:17px; font-weight:600; letter-spacing:-.3px}
+  .metric span{font-size:11px; color:var(--muted); letter-spacing:.03em}
+  .live .metric b{color:var(--accent)}
+
+  .bar{position:relative; height:4px; margin:10px 18px 0; background:#f1efea; border-radius:2px; overflow:hidden}
+  .bar i{position:absolute; left:0; top:0; bottom:0; background:var(--gray)}
+  .bar u{position:absolute; top:0; bottom:0; background:var(--accent)}
+
+  .body{padding:16px 18px 20px; min-height:208px}
+  .text{
+    margin:0; white-space:pre-wrap; word-break:break-word;
+    font-size:14.5px; line-height:1.95; min-height:176px;
+  }
+  .text.waiting{color:var(--muted)}
+  .caret::after{
+    content:""; display:inline-block; width:2px; height:15px; margin-left:2px;
+    background:var(--accent); vertical-align:-2px; animation:blink 1s step-end infinite;
+  }
+  @keyframes blink{50%{opacity:0}}
+
+  .idle-hint{color:var(--gray); font-size:13.5px}
+
+  .spinner{display:inline-flex; gap:4px; vertical-align:middle; margin-right:8px}
+  .spinner i{width:5px; height:5px; border-radius:50%; background:var(--gray); animation:pulse 1.1s infinite}
+  .spinner i:nth-child(2){animation-delay:.15s}
+  .spinner i:nth-child(3){animation-delay:.3s}
+  @keyframes pulse{0%,100%{opacity:.25; transform:translateY(0)} 50%{opacity:1; transform:translateY(-2px)}}
+
+  .verdict{
+    margin:18px 0 0; padding:11px 16px; border-radius:8px;
+    background:var(--accent-soft); border:1px solid #cfe9e4; color:#0b5f58; font-size:13.5px;
+  }
+  .verdict:empty{display:none}
+
+  .foot{margin-top:22px; display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center;
+        font-size:12.5px; color:var(--muted)}
+  .foot code{
+    font-family:var(--mono); font-size:12px; background:#f1efea; color:#3f423f;
+    padding:6px 10px; border-radius:6px; user-select:all;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>FastAPI 流式接口演示</h1>
+    <p>同一段后端文本，两条路径同时发出。左边边算边发，右边攒完再发 —— 看首字什么时候到。</p>
+  </header>
+
+  <div class="controls">
+    <div class="group">
+      <span>文本</span>
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="group">
+      <span>速度</span>
+      <input type="range" id="delay" min="15" max="90" step="5" value="30">
+      <span class="speed" id="delayOut">30 ms/块</span>
+    </div>
+    <button id="run">开始对比</button>
+  </div>
+
+  <div class="panels">
+    <section class="panel live">
+      <div class="panel-head">
+        <i class="dot"></i>
+        <h2>流式 · SSE</h2>
+        <span class="tag">text/event-stream</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><b id="streamTtft">—</b><span>首字延迟</span></div>
+        <div class="metric"><b id="streamTotal">—</b><span>总耗时</span></div>
+        <div class="metric"><b id="streamChars">0</b><span>已接收字符</span></div>
+      </div>
+      <div class="bar"><i id="sWait" style="width:0"></i><u id="sBody" style="width:0"></u></div>
+      <div class="body">
+        <p class="text idle-hint" id="streamOut">等待开始…</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <i class="dot"></i>
+        <h2>一次性 · JSON</h2>
+        <span class="tag">application/json</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><b id="plainTtft">—</b><span>首字延迟</span></div>
+        <div class="metric"><b id="plainTotal">—</b><span>总耗时</span></div>
+        <div class="metric"><b id="plainChars">0</b><span>已接收字符</span></div>
+      </div>
+      <div class="bar"><i id="pWait" style="width:0"></i><u id="pBody" style="width:0"></u></div>
+      <div class="body">
+        <p class="text idle-hint" id="plainOut">等待开始…</p>
+      </div>
+    </section>
+  </div>
+
+  <p class="verdict" id="verdict"></p>
+
+  <div class="foot">
+    <span>命令行验证：</span>
+    <code id="curl">curl -N http://127.0.0.1:8000/api/stream/medium</code>
+    <span>接口文档 <a href="/docs" style="color:var(--accent)">/docs</a></span>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { textId: "medium", delay: 0.03, running: false, ctrl: null, t0: 0 };
+
+/* ---------- 文本列表 ---------- */
+fetch("/api/texts").then(r => r.json()).then(list => {
+  $("chips").innerHTML = list.map(t =>
+    `<button class="chip" data-id="${t.id}" aria-pressed="${t.id === state.textId}">${t.title}</button>`
+  ).join("");
+  $("chips").onclick = (e) => {
+    const btn = e.target.closest(".chip");
+    if (!btn) return;
+    state.textId = btn.dataset.id;
+    [...$("chips").children].forEach(c => c.setAttribute("aria-pressed", c === btn));
+    $("curl").textContent = `curl -N http://127.0.0.1:8000/api/stream/${state.textId}`;
+    if (!state.running) reset();
+  };
+});
+
+$("delay").oninput = (e) => {
+  state.delay = e.target.value / 1000;
+  $("delayOut").textContent = `${e.target.value} ms/块`;
+};
+
+/* ---------- 界面状态 ---------- */
+function reset() {
+  ["sWait","sBody","pWait","pBody"].forEach(id => $(id).style.width = "0");
+  $("streamTtft").textContent = $("plainTtft").textContent = "—";
+  $("streamTotal").textContent = $("plainTotal").textContent = "—";
+  $("streamChars").textContent = $("plainChars").textContent = "0";
+  $("streamOut").className = "text idle-hint";
+  $("streamOut").textContent = "等待开始…";
+  $("plainOut").className = "text idle-hint";
+  $("plainOut").textContent = "等待开始…";
+  $("verdict").textContent = "";
+}
+
+function paintBars(ttftStream, totalStream, totalPlain) {
+  const scale = Math.max(totalStream, totalPlain, 1);
+  $("sWait").style.width = (ttftStream / scale * 100) + "%";
+  $("sBody").style.left = (ttftStream / scale * 100) + "%";
+  $("sBody").style.width = ((totalStream - ttftStream) / scale * 100) + "%";
+  $("pWait").style.width = "100%";
+  $("pBody").style.width = "0";
+}
+
+/* ---------- 流式：fetch + ReadableStream 解 SSE ---------- */
+async function runStream(signal) {
+  const out = $("streamOut");
+  out.className = "text caret";
+  out.textContent = "";
+
+  const res = await fetch(`/api/stream/${state.textId}?delay=${state.delay}`, { signal });
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", text = "", ttft = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    // SSE 帧以空行分隔，最后一段可能不完整，留在 buffer 里
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop();
+    for (const frame of frames) {
+      const line = frame.trim();
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") continue;
+
+      if (!ttft) ttft = performance.now() - state.t0;   // 第一个 chunk 到达
+      text += JSON.parse(data).delta;
+      out.textContent = text;
+      $("streamChars").textContent = text.length;
+      $("streamTtft").textContent = Math.round(ttft) + " ms";
+    }
+  }
+
+  const total = performance.now() - state.t0;
+  out.className = "text";
+  $("streamTotal").textContent = Math.round(total) + " ms";
+  return { ttft, total, chars: text.length };
+}
+
+/* ---------- 非流式：等完整 JSON ---------- */
+async function runPlain(signal) {
+  const out = $("plainOut");
+  out.className = "text waiting";
+  out.innerHTML = `<span class="spinner"><i></i><i></i><i></i></span>等待服务端返回完整响应…`;
+
+  const res = await fetch(`/api/plain/${state.textId}?delay=${state.delay}`, { signal });
+  const data = await res.json();
+
+  const total = performance.now() - state.t0;
+  out.className = "text";
+  out.textContent = data.text;          // 此刻一次性出现
+  $("plainTtft").textContent = Math.round(total) + " ms";
+  $("plainTotal").textContent = Math.round(total) + " ms";
+  $("plainChars").textContent = data.text.length;
+  return { ttft: total, total, chars: data.text.length };
+}
+
+/* ---------- 同时发车 ---------- */
+$("run").onclick = async () => {
+  if (state.running) { state.ctrl.abort(); return; }
+
+  reset();
+  state.running = true;
+  state.ctrl = new AbortController();
+  state.t0 = performance.now();
+  $("run").textContent = "停止";
+  $("run").classList.add("stop");
+
+  const results = await Promise.allSettled([runStream(state.ctrl.signal), runPlain(state.ctrl.signal)]);
+
+  state.running = false;
+  $("run").textContent = "重新对比";
+  $("run").classList.remove("stop");
+
+  if (state.ctrl.signal.aborted) {                 // 中途停止：收掉光标，别留半截状态
+    $("streamOut").className = "text";
+    if ($("plainChars").textContent === "0") {
+      $("plainOut").className = "text idle-hint";
+      $("plainOut").textContent = "已停止";
+    }
+    return;
+  }
+
+  const s = results[0].status === "fulfilled" ? results[0].value : null;
+  const p = results[1].status === "fulfilled" ? results[1].value : null;
+  if (!s || !p) return;
+
+  paintBars(s.ttft, s.total, p.total);
+  const saved = (p.ttft - s.ttft) / 1000;
+  $("verdict").textContent =
+    `同一段 ${s.chars} 字：流式 ${Math.round(s.ttft)} ms 就吐出了第一个字，一次性必须等 ${Math.round(p.ttft)} ms 才见到内容。` +
+    `首字早到 ${saved.toFixed(2)} 秒 —— 把一段空白等待换成了即时反馈。`;
+};
+
+// 带 ?auto=1 打开时自动跑一遍，适合做演示链接
+if (new URLSearchParams(location.search).has("auto")) $("run").click();
+</script>
+</body>
+</html>

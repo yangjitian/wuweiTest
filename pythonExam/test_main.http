@@ -1,0 +1,24 @@
+# 打开前端演示页
+GET http://127.0.0.1:8000/
+Accept: text/html
+
+###
+
+# 可选文本列表
+GET http://127.0.0.1:8000/api/texts
+Accept: application/json
+
+###
+
+# 流式接口：在终端里能直接看到分块到达（-N 关闭 curl 自己的缓冲）
+# curl -N "http://127.0.0.1:8000/api/stream/medium?delay=0.03"
+GET http://127.0.0.1:8000/api/stream/medium?delay=0.03
+Accept: text/event-stream
+
+###
+
+# 对照组：等全部生成完再一次性返回
+GET http://127.0.0.1:8000/api/plain/medium?delay=0.03
+Accept: application/json
+
+###

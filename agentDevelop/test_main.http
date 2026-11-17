@@ -1,0 +1,26 @@
+### 演示页面
+GET http://127.0.0.1:8000/
+
+###
+
+### 题目反例：100 分 / 6 人权重各 1
+POST http://127.0.0.1:8000/api/split
+Content-Type: application/json
+
+{"pool_cents": 100, "weights": {"u1": 1, "u2": 1, "u3": 1, "u4": 1, "u5": 1, "u6": 1}}
+
+###
+
+### 穷举扫描：pool 0..20 × 人数 1..4 × 权重 1..2
+POST http://127.0.0.1:8000/api/scan
+Content-Type: application/json
+
+{"pool_max": 20, "weight_max": 2, "users_max": 4}
+
+###
+
+### 边界：没有参与者
+POST http://127.0.0.1:8000/api/split
+Content-Type: application/json
+
+{"pool_cents": 100, "weights": {}}

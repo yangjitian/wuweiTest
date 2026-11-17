@@ -1,0 +1,38 @@
+# ---------- 虚拟环境（46MB，绝对不要提交）----------
+.venv/
+venv/
+ENV/
+env/
+virtualenv/
+*.egg-info/
+.eggs/
+
+# ---------- Python 字节码 ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+pip-wheel-metadata/
+
+# ---------- 测试 / 类型检查 / 缓存 ----------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# ---------- IDE ----------
+.idea/
+*.iml
+.vscode/
+
+# ---------- 本地运行产物 ----------
+*.log
+notes/
+scratch/

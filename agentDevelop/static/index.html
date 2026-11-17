@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>每日瓜分奖池 · 分账校验台</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --line: #e4e7ec;
+    --text: #1b1f24;
+    --muted: #6b7280;
+    --bad: #c62828;
+    --bad-bg: #fdeceb;
+    --good: #12795b;
+    --good-bg: #e9f7f1;
+    --accent: #2f5bd7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: .3px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 14px; font-weight: 600; }
+  .card h2 span { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  input, textarea {
+    font: inherit; color: var(--text); background: #fff;
+    border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px;
+  }
+  input { width: 140px; }
+  textarea { width: 260px; height: 138px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  input:focus, textarea:focus { outline: 2px solid rgba(47,91,215,.2); border-color: var(--accent); }
+  .actions { display: flex; align-items: center; align-self: center; gap: 10px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 7px; padding: 8px 16px;
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+  }
+  button:hover { border-color: #c9cfd8; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover { background: #2749b0; }
+
+  /* 三数结论 */
+  .verdict { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .verdict .box { border-radius: 9px; padding: 14px 16px; border: 1px solid; }
+  .box.bad { background: var(--bad-bg); border-color: #f3c7c4; }
+  .box.good { background: var(--good-bg); border-color: #b8e2d1; }
+  .box .tag { font-size: 12px; margin-bottom: 8px; letter-spacing: .5px; }
+  .box.bad .tag { color: var(--bad); }
+  .box.good .tag { color: var(--good); }
+  .eq { font-size: 15px; font-family: ui-monospace, Consolas, monospace; }
+  .eq b { font-size: 20px; }
+  .box.bad .eq b.bad-num { color: var(--bad); }
+  .box.good .eq b { color: var(--good); }
+  .box .note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  /* 双栏结果 */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .panel { border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .panel.bad { border-color: #f0cac7; }
+  .panel.good { border-color: #b8e2d1; }
+  .panel .head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; font-size: 13px; font-weight: 600;
+    background: #fafbfc; border-bottom: 1px solid var(--line);
+  }
+  .panel.bad .head { background: #fdf4f3; color: var(--bad); }
+  .panel.good .head { background: #f1faf6; color: var(--good); }
+  .panel .head code { font-weight: 400; font-size: 11.5px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 7px 14px; text-align: right; font-size: 13px; }
+  th { color: var(--muted); font-weight: 500; font-size: 11.5px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  td { border-bottom: 1px solid #f2f4f6; font-variant-numeric: tabular-nums; }
+  td.mono { font-family: ui-monospace, Consolas, monospace; }
+  tfoot td { font-weight: 600; border-bottom: 0; border-top: 1px solid var(--line); background: #fafbfc; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; }
+  .pill.bad { background: var(--bad-bg); color: var(--bad); }
+  .pill.good { background: var(--good-bg); color: var(--good); }
+
+  /* 扫描 */
+  .scan-out { margin-top: 14px; font-size: 13px; }
+  .scan-out .big { font-size: 15px; margin-bottom: 10px; }
+  .scan-out .big b { font-family: ui-monospace, Consolas, monospace; }
+  .scan-out b.bad-num { color: var(--bad); }
+  .scan-out b.good-num { color: var(--good); }
+  .samples { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; }
+  .samples code { color: var(--text); }
+  .foot { color: var(--muted); font-size: 12px; text-align: center; margin-top: 24px; line-height: 1.9; }
+  .foot code { background: #eceff3; padding: 1px 5px; border-radius: 4px; }
+  @media (max-width: 760px) {
+    .verdict, .compare { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>每日瓜分奖池 · 分账校验台</h1>
+  <p class="sub">规则：所有人分到的金额之和，必须等于奖池总额。<code>split_pool</code> 不满足这条规则，下面用同一组输入把两个版本跑在一起。</p>
+
+  <div class="card">
+    <h2>输入<span>pool_cents 与 weights</span></h2>
+    <div class="row">
+      <div class="field">
+        <label for="pool">奖池总额 pool_cents（分）</label>
+        <input id="pool" type="number" min="0" value="100">
+      </div>
+      <div class="field">
+        <label for="weights">达标用户与权重（每行 uid:权重）</label>
+        <textarea id="weights" spellcheck="false">u1:1
+u2:1
+u3:1
+u4:1
+u5:1
+u6:1</textarea>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btn-run">对比分账</button>
+        <button id="btn-case">载入题目反例</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>三数结论<span>输入 / 实际的和 / 应有的和</span></h2>
+    <div class="verdict">
+      <div class="box bad">
+        <div class="tag">原始版本 · round() 取整</div>
+        <div class="eq" id="v-original">—</div>
+        <div class="note" id="n-original"></div>
+      </div>
+      <div class="box good">
+        <div class="tag">修复版本 · 最大余数法</div>
+        <div class="eq" id="v-fixed">—</div>
+        <div class="note" id="n-fixed"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>逐人明细<span>理论 = 奖池 × 权重 ÷ 总权重</span></h2>
+    <div class="compare">
+      <div class="panel bad">
+        <div class="head"><span>原始版本</span><code>pool_split_original.py</code></div>
+        <table>
+          <thead><tr><th>用户</th><th>权重</th><th>实发(分)</th><th>理论</th></tr></thead>
+          <tbody id="t-original"></tbody>
+          <tfoot><tr><td>合计</td><td></td><td id="f-original">—</td><td id="fi-original">—</td></tr></tfoot>
+        </table>
+      </div>
+      <div class="panel good">
+        <div class="head"><span>修复版本</span><code>pool_split.py</code></div>
+        <table>
+          <thead><tr><th>用户</th><th>权重</th><th>实发(分)</th><th>理论</th></tr></thead>
+          <tbody id="t-fixed"></tbody>
+          <tfoot><tr><td>合计</td><td></td><td id="f-fixed">—</td><td id="fi-fixed">—</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>穷举扫描<span>不靠手写样例，把小规模输入全跑一遍</span></h2>
+    <div class="row">
+      <div class="field"><label for="pool-max">奖池上限（0..N 分）</label><input id="pool-max" type="number" min="0" max="200" value="20"></div>
+      <div class="field"><label for="weight-max">权重上限（1..N）</label><input id="weight-max" type="number" min="1" max="9" value="2"></div>
+      <div class="field"><label for="users-max">人数上限（1..N）</label><input id="users-max" type="number" min="1" max="6" value="4"></div>
+      <div class="actions"><button class="primary" id="btn-scan">开始扫描</button></div>
+    </div>
+    <div class="scan-out" id="scan-out"></div>
+  </div>
+
+  <p class="foot">
+    修复思路：先按权重向下取整定整数部分，再把剩下的几分钱按<strong>余数从大到小</strong>各补 1 分；全程 <code>divmod</code> 整数运算。<br>
+    总额恒等于奖池，每人偏差不超过 1 分，平手时按传入顺序，结果可复现。
+  </p>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function parseWeights(text) {
+  const weights = {};
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(.+?)[:：,\s]+(-?\d+)$/);
+    if (!m) throw new Error(`看不懂这一行：${line}（格式应为 uid:权重）`);
+    weights[m[1].trim()] = Number(m[2]);
+  }
+  if (!Object.keys(weights).length) throw new Error("至少填一个用户");
+  return weights;
+}
+
+function errText(err) {
+  if (Array.isArray(err.detail)) return err.detail.map((d) => d.msg).join("；");
+  return typeof err.detail === "string" ? err.detail : "请求失败";
+}
+
+function renderPanel(prefix, data, weights, ideal) {
+  const body = $(`t-${prefix}`);
+  body.innerHTML = "";
+  if (data.error) {
+    body.innerHTML = `<tr><td colspan="4" style="color:var(--bad)">${data.error}</td></tr>`;
+    $(`f-${prefix}`).textContent = "—";
+    $(`fi-${prefix}`).textContent = "—";
+    return;
+  }
+  for (const [uid, w] of Object.entries(weights)) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${uid}</td><td class="mono">${w}</td>
+      <td class="mono">${data.amounts[uid]}</td><td class="mono" style="color:#9aa1ab">${ideal[uid].toFixed(2)}</td>`;
+    body.appendChild(tr);
+  }
+  $(`f-${prefix}`).textContent = data.total;
+  $(`fi-${prefix}`).textContent = data.expected.toFixed(2);
+}
+
+function renderVerdict(id, data) {
+  const el = $(id);
+  if (data.error) { el.textContent = data.error; return; }
+  const diff = data.diff;
+  const tail = diff === 0 ? "✓ 与奖池相等" : diff > 0 ? `多发 ${diff} 分` : `少发 ${-diff} 分`;
+  el.innerHTML = `${data.expected} 分 → <b class="${diff ? "bad-num" : ""}">${data.total} 分</b> · ${tail}`;
+}
+
+async function run() {
+  let weights;
+  try {
+    weights = parseWeights($("weights").value);
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+  const pool = Number($("pool").value);
+  const resp = await fetch("/api/split", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pool_cents: pool, weights }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    alert(errText(err));
+    return;
+  }
+  const data = await resp.json();
+  const ideal = data.ideal;
+
+  renderVerdict("v-original", data.original);
+  renderVerdict("v-fixed", data.fixed);
+  $("n-original").textContent = data.original.ok
+    ? "这组输入恰好没暴露问题，换一组试试"
+    : `输入 pool_cents=${data.pool_cents}，实际的和=${data.original.total}，应有的和=${data.pool_cents}`;
+  $("n-fixed").textContent = `输入 pool_cents=${data.pool_cents}，实际的和=${data.fixed.total}，应有的和=${data.pool_cents}`;
+
+  renderPanel("original", data.original, weights, ideal);
+  renderPanel("fixed", data.fixed, weights, ideal);
+}
+
+async function loadCase() {
+  const c = await (await fetch("/api/case")).json();
+  $("pool").value = c.pool_cents;
+  $("weights").value = Object.entries(c.weights).map(([k, v]) => `${k}:${v}`).join("\n");
+  run();
+}
+
+async function scan() {
+  const out = $("scan-out");
+  out.innerHTML = "扫描中…";
+  const resp = await fetch("/api/scan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pool_max: Number($("pool-max").value),
+      weight_max: Number($("weight-max").value),
+      users_max: Number($("users-max").value),
+    }),
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    out.innerHTML = `<span style="color:var(--bad)">${errText(err)}</span>`;
+    return;
+  }
+  const d = await resp.json();
+  const pct = (n) => ((n / d.checked) * 100).toFixed(1);
+  const samples = d.samples
+    .map((s) => `<li><code>pool_cents=${s.pool_cents}</code> 权重 <code>${Object.values(s.weights).join(",")}</code>
+        → 实际 ${s.total} 分（${s.diff > 0 ? "多发" : "少发"} ${Math.abs(s.diff)} 分）</li>`)
+    .join("");
+  out.innerHTML = `
+    <div class="big">共校验 <b>${d.checked}</b> 组：
+      原始版本 <b class="bad-num">${d.original_fail}</b> 组不满足规则（${pct(d.original_fail)}%），
+      修复版本 <b class="good-num">${d.fixed_fail}</b> 组不满足规则。</div>
+    ${samples ? `<ul class="samples">${samples}</ul>` : ""}`;
+}
+
+$("btn-run").addEventListener("click", run);
+$("btn-case").addEventListener("click", loadCase);
+$("btn-scan").addEventListener("click", scan);
+loadCase().then(scan);
+</script>
+</body>
+</html>

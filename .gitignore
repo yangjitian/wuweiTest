@@ -1,0 +1,60 @@
+# ============================================================
+# 仓库根级忽略规则：所有项目共用
+# 各项目自己的语言相关规则在 <项目>/.gitignore
+# ============================================================
+
+# ---------- 操作系统 ----------
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+*.lnk
+
+# ---------- 编辑器 / IDE ----------
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+nbproject/private/
+*.sublime-workspace
+*.sublime-project
+
+# ---------- 日志与临时文件 ----------
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+~$*
+cookies.txt
+
+# ---------- 环境变量与密钥 ----------
+# 只提交 .env.example，真实配置不落仓库
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks
+
+# ---------- 压缩包 / 导出物 ----------
+*.zip
+*.tar.gz
+*.7z
+
+# ---------- 本地工具目录 ----------
+.workbuddy/
